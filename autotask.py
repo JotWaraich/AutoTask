@@ -5,6 +5,8 @@ from pynput.mouse import Controller, Listener as MouseListener
 from pynput.keyboard import Listener as KeyboardListener, Controller as KeyboardController, Key
 import threading
 import tkinter as tk
+import pickle  # Import pickle for saving
+from tkinter import filedialog # Import filedialog for save dialog
 
 recorded_actions = []
 is_recording = False
@@ -55,6 +57,47 @@ def start_recording():
     mouse_listener.start()
     keyboard_listener.start()
 
+def save_recording():
+    global recorded_actions
+    if not recorded_actions:
+        print("No actions recorded to save.")
+        update_status("No actions recorded to save.")
+        return
+
+    file_path = filedialog.asksaveasfilename(
+        defaultextension=".rec",  # default extension for recording files
+        filetypes=[("Recording files", "*.rec"), ("All files", "*.*")],
+        title="Save Recording As"
+    )
+
+    if file_path:
+        try:
+            with open(file_path, 'wb') as file: # binary write mode for pickle
+                pickle.dump(recorded_actions, file)
+            print(f"Recording saved to: {file_path}")
+            update_status(f"Recording saved to: {file_path}")
+        except Exception as e:
+            print(f"Error saving recording: {e}")
+            update_status(f"Error saving recording: {e}")
+
+def load_recording():
+    global recorded_actions
+    file_path = filedialog.askopenfilename(
+        defaultextension=".rec",
+        filetypes=[("Recording files", "*.rec"), ("All files", "*.*")],
+        title="Load Recording"
+    )
+    if file_path:
+        try:
+            with open(file_path, 'rb') as file: # binary read mode for pickle
+                loaded_actions = pickle.load(file)
+                recorded_actions = loaded_actions # Update current actions with loaded actions
+            print(f"Recording loaded from: {file_path}")
+            update_status(f"Recording loaded from: {file_path}")
+        except Exception as e:
+            print(f"Error loading recording: {e}")
+            update_status(f"Error loading recording: {e}")
+
 def stop_recording():
     global is_recording, recording_listeners
     if not is_recording:
@@ -66,6 +109,8 @@ def stop_recording():
     recording_listeners = []
     print("Recording stopped.")
     update_status("Recording stopped.")
+    # save_recording() # REMOVED save_recording() call from here
+
 
 # Replaying function
 def replay_actions():
@@ -93,12 +138,12 @@ def replay_actions():
             # Handle special keys properly
             if key.startswith('Key.'):  # If it's a special key (e.g., F9, F10)
                 key = getattr(Key, key[4:])  # Convert to pynput's Key enumeration (e.g., Key.f9)
-            
+
             if event_type == 'press':
                 keyboard_controller.press(key)
             else:
                 keyboard_controller.release(key)
-        
+
         elif action_type == 'mouse':
             if action[1] == 'move':
                 _, _, x, y, timestamp = action
@@ -145,7 +190,8 @@ listener_thread.start()
 
 # Setup the Tkinter GUI
 root = tk.Tk()
-root.title("Hotkey Controller GUI")
+root.title("AtuoTask")
+root.minsize(250, 230)
 
 status_var = tk.StringVar()
 status_var.set("Idle")
@@ -166,6 +212,14 @@ label_f10.pack(pady=5)
 
 status_label = tk.Label(root, textvariable=status_var)
 status_label.pack(pady=10)
+
+# Save Button
+save_button = tk.Button(root, text="Save Recording", command=save_recording) # Button to call save_recording
+save_button.pack(pady=10)
+
+# Load Button
+load_button = tk.Button(root, text="Load Recording", command=load_recording) # Button to call load_recording
+load_button.pack(pady=10)
 
 # Optional exit button to close the GUI
 exit_button = tk.Button(root, text="Exit", command=root.destroy)
