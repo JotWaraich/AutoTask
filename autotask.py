@@ -9,6 +9,7 @@ import threading
 recorded_actions = []
 is_recording = False
 replaying = False
+recording_listeners = []
 
 mouse_controller = Controller()
 keyboard_controller = KeyboardController()
@@ -39,23 +40,29 @@ def on_scroll(x, y, dx, dy):
 
 # Recording control function
 def start_recording():
-    global is_recording
+    global is_recording, recording_listeners
     if is_recording:
-        print("Recording stopped.")
+        # If already recording, do nothing.
         return
+    recorded_actions.clear()  # Clear previous actions
     is_recording = True
-    recorded_actions.clear()
     print("Recording started...")
-    
-    # Listen to keyboard and mouse events
-    with mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll) as mouse_listener, \
-         keyboard.Listener(on_press=on_press, on_release=on_release) as keyboard_listener:
-        mouse_listener.join()
-        keyboard_listener.join()
+    # Create listeners (non-blocking)
+    mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
+    keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
+    recording_listeners = [mouse_listener, keyboard_listener]
+    mouse_listener.start()
+    keyboard_listener.start()
 
 def stop_recording():
-    global is_recording
+    global is_recording, recording_listeners
+    if not is_recording:
+        return
     is_recording = False
+    # Stop all listeners
+    for listener in recording_listeners:
+        listener.stop()
+    recording_listeners = []
     print("Recording stopped.")
 
 # Replaying function
@@ -111,9 +118,7 @@ def replay_actions():
                 if time_diff > 0:
                     time.sleep(time_diff)  # Only sleep if time difference is positive
                 mouse_controller.scroll(dx, dy)
-
         last_time = timestamp
-
     replaying = False  # Mark replay as finished
 
 # Stop replaying when F10 is pressed
@@ -134,10 +139,11 @@ def replay_thread():
 if __name__ == "__main__":
     try:
         # Start recording when a key is pressed (e.g., F9 to start and stop recording)
-        kb.add_hotkey('F9', lambda: threading.Thread(target=record_thread).start())
+        # kb.add_hotkey('F9', lambda: threading.Thread(target=start_recording).start())
+        kb.add_hotkey('F9', lambda: stop_recording() if is_recording else threading.Thread(target=start_recording).start())
         
         # Start replaying when F10 is pressed, and stop when pressed again
-        kb.add_hotkey('F10', lambda: stop_replay() if replaying else threading.Thread(target=replay_thread).start())
+        kb.add_hotkey('F10', lambda: stop_replay() if replaying else threading.Thread(target=replay_actions).start())
 
         
         print("Press F9 to start/stop recording.")
