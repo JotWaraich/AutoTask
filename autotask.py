@@ -2,14 +2,15 @@ import time
 import keyboard as kb
 from pynput import mouse, keyboard
 from pynput.mouse import Controller, Listener as MouseListener
-from pynput.keyboard import Listener as KeyboardListener, Controller as KeyboardController
-from pynput.keyboard import Key
+from pynput.keyboard import Listener as KeyboardListener, Controller as KeyboardController, Key
 import threading
+import tkinter as tk
 
 recorded_actions = []
 is_recording = False
 replaying = False
 recording_listeners = []
+current_action = ""
 
 mouse_controller = Controller()
 keyboard_controller = KeyboardController()
@@ -47,6 +48,7 @@ def start_recording():
     recorded_actions.clear()  # Clear previous actions
     is_recording = True
     print("Recording started...")
+    current_action = "Recording started..."
     # Create listeners (non-blocking)
     mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
     keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
@@ -64,16 +66,19 @@ def stop_recording():
         listener.stop()
     recording_listeners = []
     print("Recording stopped.")
+    current_action = "Recording stopped."
 
 # Replaying function
 def replay_actions():
     global replaying
     if replaying:
         print("Replay already in progress.")
+        current_action = "Replay already in progress."
         return
 
     replaying = True
     print("Replaying actions...")
+    current_action = "Replaying actions..."
     last_time = time.time()
 
     for action in recorded_actions:
@@ -126,29 +131,35 @@ def stop_replay():
     global replaying
     replaying = False
     print("Replay stopped.")
+    current_action = "Replay stopped."
 
 
-# Start and stop recording in separate threads to allow control with a key press
-def record_thread():
-    start_recording()
+def hotkey_listener():
+    # Register hotkeys using the keyboard module (aliased as kb)
+    kb.add_hotkey('F9', lambda: stop_recording() if is_recording else threading.Thread(target=start_recording).start())
+    kb.add_hotkey('F10', lambda: stop_replay() if replaying else threading.Thread(target=replay_actions).start())
+    kb.wait()  # Block this thread and keep listening for hotkeys
 
-def replay_thread():
-    replay_actions()
+# Start the hotkey listener in a background thread
+listener_thread = threading.Thread(target=hotkey_listener, daemon=True)
+listener_thread.start()
 
-# Main program
-if __name__ == "__main__":
-    try:
-        # Start recording when a key is pressed (e.g., F9 to start and stop recording)
-        # kb.add_hotkey('F9', lambda: threading.Thread(target=start_recording).start())
-        kb.add_hotkey('F9', lambda: stop_recording() if is_recording else threading.Thread(target=start_recording).start())
-        
-        # Start replaying when F10 is pressed, and stop when pressed again
-        kb.add_hotkey('F10', lambda: stop_replay() if replaying else threading.Thread(target=replay_actions).start())
+# Setup the Tkinter GUI
+root = tk.Tk()
+root.title("Hotkey Controller GUI")
 
-        
-        print("Press F9 to start/stop recording.")
-        print("Press F10 to replay the recorded actions.")
-        
-        kb.wait()  # Block the program and wait for hotkeys
-    except KeyboardInterrupt:
-        print("\nProgram exited gracefully.")
+# Create labels to display hotkey instructions
+header_label = tk.Label(root, text="Hotkey Controls", font=("Arial", 16, "bold"))
+header_label.pack(pady=10)
+
+label_f9 = tk.Label(root, text="F9: Start/Stop Recording", font=("Arial", 12))
+label_f9.pack(pady=5)
+
+label_f10 = tk.Label(root, text="F10: Replay/Stop Replay", font=("Arial", 12))
+label_f10.pack(pady=5)
+
+# Optional exit button to close the GUI
+exit_button = tk.Button(root, text="Exit", command=root.destroy)
+exit_button.pack(pady=20)
+
+root.mainloop()
