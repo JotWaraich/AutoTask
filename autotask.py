@@ -10,7 +10,6 @@ recorded_actions = []
 is_recording = False
 replaying = False
 recording_listeners = []
-current_action = ""
 
 mouse_controller = Controller()
 keyboard_controller = KeyboardController()
@@ -48,7 +47,7 @@ def start_recording():
     recorded_actions.clear()  # Clear previous actions
     is_recording = True
     print("Recording started...")
-    current_action = "Recording started..."
+    update_status("Recording started...")
     # Create listeners (non-blocking)
     mouse_listener = mouse.Listener(on_move=on_move, on_click=on_click, on_scroll=on_scroll)
     keyboard_listener = keyboard.Listener(on_press=on_press, on_release=on_release)
@@ -66,19 +65,19 @@ def stop_recording():
         listener.stop()
     recording_listeners = []
     print("Recording stopped.")
-    current_action = "Recording stopped."
+    update_status("Recording stopped.")
 
 # Replaying function
 def replay_actions():
     global replaying
     if replaying:
         print("Replay already in progress.")
-        current_action = "Replay already in progress."
+        update_status("Replay already in progress.")
         return
 
     replaying = True
     print("Replaying actions...")
-    current_action = "Replaying actions..."
+    update_status("Replaying actions...")
     last_time = time.time()
 
     for action in recorded_actions:
@@ -131,7 +130,7 @@ def stop_replay():
     global replaying
     replaying = False
     print("Replay stopped.")
-    current_action = "Replay stopped."
+    update_status("Replay stopped.")
 
 
 def hotkey_listener():
@@ -148,6 +147,13 @@ listener_thread.start()
 root = tk.Tk()
 root.title("Hotkey Controller GUI")
 
+status_var = tk.StringVar()
+status_var.set("Idle")
+
+def update_status(text):
+    status_var.set(text)
+    status_label.update()
+
 # Create labels to display hotkey instructions
 header_label = tk.Label(root, text="Hotkey Controls", font=("Arial", 16, "bold"))
 header_label.pack(pady=10)
@@ -157,6 +163,9 @@ label_f9.pack(pady=5)
 
 label_f10 = tk.Label(root, text="F10: Replay/Stop Replay", font=("Arial", 12))
 label_f10.pack(pady=5)
+
+status_label = tk.Label(root, textvariable=status_var)
+status_label.pack(pady=10)
 
 # Optional exit button to close the GUI
 exit_button = tk.Button(root, text="Exit", command=root.destroy)
